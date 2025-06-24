@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VEO 3 Prompt Generator by @maspandu.ai</title>
+    <title>Veo 3 Prompt Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals -->
-    <!-- Application Structure Plan: SPA ini dirancang dengan tata letak dua kolom (form di kiri, output di kanan) pada layar lebar, yang berubah menjadi satu kolom di perangkat seluler. Struktur ini dipilih untuk memberikan pengalaman pengguna yang intuitif, di mana pengguna dapat mengisi form dan melihat hasilnya secara real-time di sampingnya. Alur pengguna sederhana: isi, lihat, salin. Pendekatan ini mengubah dokumen statis menjadi alat yang dinamis dan fungsional, meningkatkan kegunaan dengan mengotomatiskan pembuatan prompt. -->
-    <!-- Visualization & Content Choices: Karena "laporan sumber" adalah sebuah template form, metode presentasi yang paling efektif adalah form HTML interaktif, bukan visualisasi data seperti grafik. Setiap field dalam laporan diubah menjadi input teks atau textarea. "Visualisasi" utamanya adalah blok teks output yang diperbarui secara dinamis, yang secara langsung melayani tujuan pengguna untuk membuat prompt. Interaksi utama adalah mengetik di form dan menyalin hasilnya. Metode: HTML, Tailwind CSS, Vanilla JS. -->
+    <!-- Application Structure Plan: SPA ini dirancang dengan tata letak dua kolom (form di kiri, output rangkuman di kanan) pada layar lebar, yang berubah menjadi satu kolom di perangkat seluler. Struktur ini dipilih untuk memberikan pengalaman pengguna yang intuitif, di mana pengguna dapat mengisi form dan melihat rangkuman secara real-time. Alur pengguna: isi form, lihat rangkuman, proses dengan LLM melalui tombol khusus yang akan menampilkan prompt final di pop-up. Fitur tambahan karakter dinamis memungkinkan pengguna untuk menambahkan karakter tambahan sesuka hati, membuat form lebih ringkas secara default. Penambahan field aksen bahasa, penghapusan ekspansi dialog, dan integrasi fitur AI baru untuk saran konten meningkatkan fungsionalitas aplikasi. Footer minimalis juga ditambahkan. -->
+    <!-- Visualization & Content Choices: Karena "laporan sumber" adalah template form, metode presentasi paling efektif adalah form HTML interaktif. Setiap field diubah menjadi input teks atau textarea. "Rangkuman" awal adalah blok teks yang diperbarui dinamis. Prompt Veo 3 yang dioptimalkan dari LLM ditampilkan dalam pop-up terpisah. Interaksi utama adalah mengisi form, melihat rangkuman, mengklik tombol untuk memicu optimasi AI dan menampilkan pop-up, menambahkan/menghapus blok karakter tambahan secara dinamis, serta menggunakan FAB untuk mendapatkan saran konten AI baru yang mengisi form secara otomatis. Metode: HTML, Tailwind CSS, Vanilla JS, Gemini API. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -31,6 +31,10 @@
         }
         .form-textarea {
             min-height: 80px;
+        }
+        /* Style for the contentPlanInput to make text readable */
+        #contentPlanInput {
+            color: #1f2937; /* Dark text for contrast against light background */
         }
         .btn {
             padding: 0.625rem 1.25rem;
@@ -73,6 +77,114 @@
             color: #78350f;
             padding: 0 0.5rem;
         }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: #1f2937;
+            color: #d1d5db;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            max-width: 90%;
+            width: 600px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.show .modal-content {
+            transform: translateY(0);
+        }
+        .lang-indicator {
+            font-size: 0.875rem;
+            color: #a1a1aa;
+            margin-top: 0.5rem;
+            text-align: right;
+        }
+        .remove-character-button {
+            background-color: #dc2626; /* Red-600 */
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s;
+        }
+        .remove-character-button:hover {
+            background-color: #b91c1c; /* Red-700 */
+        }
+        .btn-multiline {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.2;
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background-color: #ca8a04;
+            color: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            z-index: 900;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .fab:hover {
+            background-color: #a16207;
+        }
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        /* Footer Social Icons - Using Unicode emojis */
+        .social-icon {
+            font-size: 1.5rem;
+            color: #57534e; /* Stone-600 */
+            transition: color 0.2s;
+            text-decoration: none; /* Remove underline from links */
+        }
+        .social-icon:hover {
+            color: #ca8a04; /* Primary color */
+        }
     </style>
 </head>
 <body class="bg-stone-100 text-stone-800">
@@ -80,7 +192,7 @@
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <header class="text-center mb-10">
             <h1 class="text-4xl font-bold text-stone-900">Veo 3 Prompt Generator by @maspandu.ai</h1>
-            <p class="mt-2 text-lg text-stone-600">Isi form di bawah untuk membuat prompt dialog yang detail dan terstruktur secara otomatis.</br>Jangan lupa follow <a href='https://tiktok.com/@maspandu.ai' target='_BLANK'>@maspandu.ai</a> & komen jika ada masukan ya!</p>
+            <p class="mt-2 text-lg text-stone-600">Isi form di bawah untuk membuat prompt dialog yang detail dan terstruktur secara otomatis.</br>Jangan lupa follow @maspandu.ai & komen jika ada masukan ya!</p>
         </header>
 
         <main class="grid grid-cols-1 lg:grid-cols-2 lg:gap-12">
@@ -133,28 +245,39 @@
                     </div>
                 </fieldset>
 
-                <!-- Karakter Tambahan (Opsional) -->
-                <fieldset class="border border-stone-300 rounded-lg p-6">
-                    <legend class="legend-title">Karakter Tambahan (Opsional)</legend>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="char3_name" class="block text-sm font-medium text-stone-700 mb-1">Nama Karakter</label>
-                            <input type="text" id="char3_name" class="form-input" placeholder="Contoh: Makhluk hutan, penjaga gerbang">
-                        </div>
-                        <div>
-                            <label for="char3_description" class="block text-sm font-medium text-stone-700 mb-1">Deskripsi Fisik</label>
-                            <textarea id="char3_description" class="form-input form-textarea" placeholder="Contoh: Bertubuh kecil, kulit bersisik, mata besar bercahaya"></textarea>
-                        </div>
-                        <div>
-                            <label for="char3_outfit" class="block text-sm font-medium text-stone-700 mb-1">Pakaian</label>
-                            <textarea id="char3_outfit" class="form-input form-textarea" placeholder="Contoh: Tidak memakai pakaian, jubah dari daun"></textarea>
-                        </div>
-                        <div>
-                            <label for="char3_character" class="block text-sm font-medium text-stone-700 mb-1">Karakter / Ekspresi</label>
-                            <textarea id="char3_character" class="form-input form-textarea" placeholder="Contoh: Penakut, suka menyelinap, pandangan mata tajam"></textarea>
-                        </div>
+                <!-- Dynamic Karakter Tambahan Section -->
+                <div id="additionalCharactersSection">
+                    <button type="button" id="addAdditionalCharacterButton" class="btn btn-secondary w-full mb-4">
+                        + Tambahkan Karakter Tambahan
+                    </button>
+                    <div id="additionalCharactersContainer" class="space-y-8">
+                        <!-- Template for new characters (initially hidden) -->
+                        <fieldset class="border border-stone-300 rounded-lg p-6 hidden additional-character-template">
+                            <legend class="legend-title flex justify-between items-center">
+                                <span class="character-legend-title">Karakter Tambahan</span>
+                                <button type="button" class="remove-character-button">Hapus</button>
+                            </legend>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-stone-700 mb-1">Nama Karakter</label>
+                                    <input type="text" class="form-input char-name-input" placeholder="Contoh: Makhluk hutan, penjaga gerbang">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-stone-700 mb-1">Deskripsi Fisik</label>
+                                    <textarea class="form-input form-textarea char-description-input" placeholder="Contoh: Bertubuh kecil, kulit bersisik, mata besar bercahaya"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-stone-700 mb-1">Pakaian</label>
+                                    <textarea class="form-input form-textarea char-outfit-input" placeholder="Contoh: Tidak memakai pakaian, jubah dari daun"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-stone-700 mb-1">Karakter / Ekspresi</label>
+                                    <textarea class="form-input form-textarea char-character-input" placeholder="Contoh: Penakut, suka menyelinap, pandangan mata tajam"></textarea>
+                                </div>
+                            </div>
+                        </fieldset>
                     </div>
-                </fieldset>
+                </div>
 
                 <!-- Detail Adegan -->
                 <fieldset class="border border-stone-300 rounded-lg p-6">
@@ -163,6 +286,25 @@
                         <div>
                             <label for="scene_setting" class="block text-sm font-medium text-stone-700 mb-1">Deskripsi Setting / Lokasi</label>
                             <textarea id="scene_setting" class="form-input form-textarea" placeholder="Contoh: Reruntuhan kuil kuno yang diselimuti kabut, di dalam pesawat ruang angkasa yang rusak"></textarea>
+                        </div>
+                        <div>
+                            <label for="dialogue_accent" class="block text-sm font-medium text-stone-700 mb-1">Aksen Bahasa Dialog</label>
+                            <select id="dialogue_accent" class="form-input">
+                                <option value="">Pilih Aksen (Opsional)</option>
+                                <option value="Indonesia">Indonesia</option>
+                                <option value="Inggris (General)">Inggris (General)</option>
+                                <option value="Inggris (British)">Inggris (British)</option>
+                                <option value="Inggris (American)">Inggris (American)</option>
+                                <option value="Jepang">Jepang</option>
+                                <option value="Korea">Korea</option>
+                                <option value="Mandarin">Mandarin</option>
+                                <option value="Prancis">Prancis</option>
+                                <option value="Spanyol">Spanyol</option>
+                                <option value="Jerman">Jerman</option>
+                                <option value="Timur Tengah">Timur Tengah</option>
+                                <option value="India">India</option>
+                                <!-- Tambahkan aksen lain sesuai kebutuhan -->
+                            </select>
                         </div>
                         <div>
                             <label for="scene_dialogue" class="block text-sm font-medium text-stone-700 mb-1">Cuplikan Dialog</label>
@@ -189,16 +331,34 @@
                         </div>
                     </div>
                 </fieldset>
+
+                <!-- Saran Elemen Visual -->
+                <fieldset class="border border-stone-300 rounded-lg p-6">
+                    <legend class="legend-title">Saran Elemen Visual ✨</legend>
+                    <div class="space-y-4">
+                        <button type="button" id="suggestVisualsButton" class="btn btn-secondary w-full flex items-center justify-center">
+                            <span id="suggestVisualsButtonText">✨ Dapatkan Saran Visual ✨</span>
+                            <div id="suggestVisualsSpinner" class="loading-spinner hidden"></div>
+                        </button>
+                        <div>
+                            <label for="visual_suggestions" class="block text-sm font-medium text-stone-700 mb-1 mt-4">Elemen Visual yang Disarankan</label>
+                            <textarea id="visual_suggestions" class="form-input form-textarea" rows="5" placeholder="Saran elemen visual dari AI akan muncul di sini..."></textarea>
+                        </div>
+                    </div>
+                </fieldset>
             </form>
 
-            <!-- Output Section -->
+            <!-- Output Section (Rangkuman) -->
             <div class="sticky top-12 self-start">
-                <h2 class="text-2xl font-bold text-stone-900 mb-4">Generated Prompt</h2>
+                <h2 class="text-2xl font-bold text-stone-900 mb-4">Rangkuman</h2>
                 <div id="promptOutput" class="prompt-output">
-                    Isi form di sebelah kiri untuk melihat prompt Anda di sini...
+                    Isi form di sebelah kiri untuk melihat rangkuman prompt Anda di sini...
                 </div>
                 <div class="mt-6 flex flex-col sm:flex-row gap-4">
-                    <button id="copyButton" class="btn btn-primary w-full">Copy to Clipboard</button>
+                    <button id="generateVeo3Button" class="btn btn-primary w-full flex items-center justify-center btn-multiline" disabled>
+                        <span id="veo3ButtonText">Generate Prompt<br>for VEO 3</span>
+                        <div id="veo3LoadingSpinner" class="loading-spinner hidden"></div>
+                    </button>
                     <button id="resetButton" type="button" class="btn btn-secondary w-full">Reset Form</button>
                 </div>
                 <div id="copyNotification" class="mt-4 text-center text-green-600 font-medium opacity-0 transition-opacity">
@@ -208,101 +368,542 @@
         </main>
     </div>
 
+    <!-- Floating Action Button for AI Content Plan -->
+    <div id="fabButton" class="fab">
+        ✨
+    </div>
+
+    <!-- Pop-up for Veo 3 Generated Prompt -->
+    <div id="veo3PromptModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">Generated Prompt for Veo 3</h3>
+            <div id="veo3ModalPromptText" class="prompt-output mb-6">
+                <!-- Veo 3 prompt will be inserted here -->
+            </div>
+            <div class="lang-indicator" id="promptLanguageIndicator">Bahasa: Indonesia</div>
+            <div class="flex justify-end gap-4 mt-4">
+                <button id="translateToEnglishButton" class="btn btn-secondary flex items-center justify-center">
+                    <span id="translateButtonText">Translate to English</span>
+                    <div id="translateLoadingSpinner" class="loading-spinner hidden"></div>
+                </button>
+                <button id="copyVeo3PromptButton" class="btn btn-primary">Copy Prompt</button>
+                <button id="closeVeo3ModalButton" class="btn btn-secondary">Close PopUp</button>
+            </div>
+            <div id="modalCopyNotification" class="mt-4 text-center text-green-600 font-medium opacity-0 transition-opacity">
+                Prompt Veo 3 disalin!
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW Pop-up for Content Plan Input -->
+    <div id="contentPlanModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">Tuangkan Rencana Konten Anda</h3>
+            <textarea id="contentPlanInput" class="form-input form-textarea mb-4" rows="8" placeholder="Contoh: Adegan dua orang penyihir di hutan ajaib sedang berdebat tentang kristal kuno yang rusak. Salah satu penyihir ingin memperbaikinya, yang lain ingin menghancurkannya."></textarea>
+            <div class="flex justify-end">
+                <button id="generateContentIdeasButton" class="btn btn-primary flex items-center justify-center">
+                    <span id="generateContentIdeasButtonText">Berikan Ide Konten</span>
+                    <div id="generateContentIdeasSpinner" class="loading-spinner hidden"></div>
+                </button>
+                <button id="closeContentPlanModalButton" class="btn btn-secondary ml-4">Tutup</button>
+            </div>
+            <div id="contentPlanErrorNotification" class="mt-4 text-center text-red-500 font-medium opacity-0 transition-opacity">
+                Harap masukkan rencana konten.
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="bg-stone-200 text-stone-700 py-6 mt-12">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
+            <p class="mb-2">VEO 3 Prompt Generator | Version 1.0 | by @maspandu.ai</p>
+            <div class="flex justify-center items-center space-x-4">
+                <span class="font-medium">Follow us:</span>
+                <a href="https://instagram.com/maspandu.ai" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Instagram">
+                    <i class="fab fa-instagram"></i>
+                </a>
+                <a href="https://tiktok.com/@maspandu.ai" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="TikTok">
+                    <i class="fab fa-tiktok"></i>
+                </a>
+                <a href="https://facebook.com/maspandu.ai" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Facebook">
+                    <i class="fab fa-facebook-f"></i>
+                </a>
+                <a href="https://youtube.com/@maspanduai" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="YouTube">
+                    <i class="fab fa-youtube"></i>
+                </a>
+            </div>
+        </div>
+    </footer>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('promptForm');
-            const outputElement = document.getElementById('promptOutput');
-            const copyButton = document.getElementById('copyButton');
+            const outputElement = document.getElementById('promptOutput'); 
+            const generateVeo3Button = document.getElementById('generateVeo3Button');
+            const veo3ButtonText = document.getElementById('veo3ButtonText');
+            const veo3LoadingSpinner = document.getElementById('veo3LoadingSpinner');
             const resetButton = document.getElementById('resetButton');
-            const copyNotification = document.getElementById('copyNotification');
 
-            const inputs = form.querySelectorAll('input, textarea');
+            const veo3PromptModal = document.getElementById('veo3PromptModal');
+            const veo3ModalPromptText = document.getElementById('veo3ModalPromptText');
+            const copyVeo3PromptButton = document.getElementById('copyVeo3PromptButton');
+            const closeVeo3ModalButton = document.getElementById('closeVeo3ModalButton');
+            const modalCopyNotification = document.getElementById('modalCopyNotification');
+            const translateToEnglishButton = document.getElementById('translateToEnglishButton');
+            const translateButtonText = document.getElementById('translateButtonText'); 
+            const translateLoadingSpinner = document.getElementById('translateLoadingSpinner');
+            const promptLanguageIndicator = document.getElementById('promptLanguageIndicator');
+
+            const addAdditionalCharacterButton = document.getElementById('addAdditionalCharacterButton');
+            const additionalCharactersContainer = document.getElementById('additionalCharactersContainer');
+            const additionalCharacterTemplate = document.querySelector('.additional-character-template');
+
+            const char1NameInput = document.getElementById('char1_name');
+            const char1DescriptionInput = document.getElementById('char1_description');
+            const char1OutfitInput = document.getElementById('char1_outfit');
+            const char1CharacterInput = document.getElementById('char1_character');
+
+            const char2NameInput = document.getElementById('char2_name');
+            const char2DescriptionInput = document.getElementById('char2_description');
+            const char2OutfitInput = document.getElementById('char2_outfit');
+            const char2CharacterInput = document.getElementById('char2_character');
+
+            const sceneDialogueInput = document.getElementById('scene_dialogue');
+            const dialogueAccentInput = document.getElementById('dialogue_accent'); 
+            const sceneSettingInput = document.getElementById('scene_setting'); 
+
+            const cineCameraInput = document.getElementById('cine_camera');
+            const cineLightingInput = document.getElementById('cine_lighting');
+            const cineVisualStyleInput = document.getElementById('cine_visual_style');
+
+            const suggestVisualsButton = document.getElementById('suggestVisualsButton');
+            const suggestVisualsButtonText = document.getElementById('suggestVisualsButtonText');
+            const suggestVisualsSpinner = document.getElementById('suggestVisualsSpinner');
+            const visualSuggestionsInput = document.getElementById('visual_suggestions');
+
+            // New FAB related elements
+            const fabButton = document.getElementById('fabButton');
+            const contentPlanModal = document.getElementById('contentPlanModal');
+            const contentPlanInput = document.getElementById('contentPlanInput');
+            const generateContentIdeasButton = document.getElementById('generateContentIdeasButton');
+            const generateContentIdeasButtonText = document.getElementById('generateContentIdeasButtonText');
+            const generateContentIdeasSpinner = document.getElementById('generateContentIdeasSpinner');
+            const closeContentPlanModalButton = document.getElementById('closeContentPlanModalButton');
+            const contentPlanErrorNotification = document.getElementById('contentPlanErrorNotification');
+
+
+            let additionalCharacterCount = 0;
+            let currentModalPromptLanguage = 'id'; 
+
+            const getAllFormInputs = () => {
+                return form.querySelectorAll('input, textarea, select'); 
+            };
 
             const generatePrompt = () => {
                 const data = {};
-                inputs.forEach(input => {
-                    data[input.id] = input.value.trim();
+                getAllFormInputs().forEach(input => {
+                    if (!input.closest('.additional-character-template') && !input.closest('#additionalCharactersContainer') && input.id !== 'contentPlanInput' && input.id) {
+                        data[input.id] = input.value.trim();
+                    }
+                });
+
+                data.additionalCharacters = [];
+                const dynamicCharacterBlocks = additionalCharactersContainer.querySelectorAll('.additional-character-block');
+                dynamicCharacterBlocks.forEach((block) => {
+                    const charData = {
+                        name: block.querySelector('.char-name-input').value.trim(),
+                        description: block.querySelector('.char-description-input').value.trim(),
+                        outfit: block.querySelector('.char-outfit-input').value.trim(),
+                        character: block.querySelector('.char-character-input').value.trim()
+                    };
+                    if (Object.values(charData).some(val => val !== '')) {
+                        data.additionalCharacters.push(charData);
+                    }
                 });
 
                 let promptParts = [];
 
-                promptParts.push("Prompt Veo 3:");
-                promptParts.push(""); // Spacer
+                promptParts.push("Rangkuman Prompt:");
+                promptParts.push(""); 
 
-                // Karakter 1
-                promptParts.push("**Karakter 1:**");
+                promptParts.push("Karakter 1:");
                 if (data.char1_name) promptParts.push(`- Nama: ${data.char1_name}`);
                 if (data.char1_description) promptParts.push(`- Deskripsi Fisik: ${data.char1_description}`);
                 if (data.char1_outfit) promptParts.push(`- Pakaian: ${data.char1_outfit}`);
                 if (data.char1_character) promptParts.push(`- Karakter / Ekspresi: ${data.char1_character}`);
-                promptParts.push(""); // Spacer
+                promptParts.push(""); 
 
-                // Karakter 2
-                promptParts.push("**Karakter 2:**");
+                promptParts.push("Karakter 2:");
                 if (data.char2_name) promptParts.push(`- Nama: ${data.char2_name}`);
                 if (data.char2_description) promptParts.push(`- Deskripsi Fisik: ${data.char2_description}`);
                 if (data.char2_outfit) promptParts.push(`- Pakaian: ${data.char2_outfit}`);
                 if (data.char2_character) promptParts.push(`- Karakter / Ekspresi: ${data.char2_character}`);
-                promptParts.push(""); // Spacer
+                promptParts.push(""); 
 
-                // Karakter Tambahan (Opsional)
-                if (data.char3_name || data.char3_description || data.char3_outfit || data.char3_character) {
-                    promptParts.push("**Karakter Tambahan (Opsional):**");
-                    if (data.char3_name) promptParts.push(`- Nama: ${data.char3_name}`);
-                    if (data.char3_description) promptParts.push(`- Deskripsi Fisik: ${data.char3_description}`);
-                    if (data.char3_outfit) promptParts.push(`- Pakaian: ${data.char3_outfit}`);
-                    if (data.char3_character) promptParts.push(`- Karakter / Ekspresi: ${data.char3_character}`);
-                    promptParts.push(""); // Spacer
-                }
+                data.additionalCharacters.forEach((char, index) => {
+                    promptParts.push(`Karakter Tambahan ${index + 3}:`); 
+                    if (char.name) promptParts.push(`- Nama: ${char.name}`);
+                    if (char.description) promptParts.push(`- Deskripsi Fisik: ${char.description}`);
+                    if (char.outfit) promptParts.push(`- Pakaian: ${char.outfit}`);
+                    if (char.character) promptParts.push(`- Karakter / Ekspresi: ${char.character}`);
+                    promptParts.push("");
+                });
 
-                // Detail Adegan
-                promptParts.push("**Detail Adegan:**");
+                promptParts.push("Detail Adegan:");
                 if (data.scene_setting) promptParts.push(`- Deskripsi Setting / Lokasi: ${data.scene_setting}`);
-                if (data.scene_dialogue) promptParts.push(`- Cuplikan Dialog: ${data.scene_dialogue}`);
-                promptParts.push(""); // Spacer
+                if (data.dialogue_accent) promptParts.push(`- Aksen Bahasa Dialog: ${data.dialogue_accent}`); 
+                if (data.scene_dialogue) promptParts.push(`- Cuplikan Dialog (DIALOG ASLI TIDAK DITERJEMAHKAN): "${data.scene_dialogue}"`); 
+                promptParts.push(""); 
 
-                // Sinematografi
-                promptParts.push("**Sinematografi:**");
+                promptParts.push("Sinematografi:");
                 if (data.cine_camera) promptParts.push(`- Sudut Kamera & Gerakan: ${data.cine_camera}`);
                 if (data.cine_lighting) promptParts.push(`- Pencahayaan & Suasana: ${data.cine_lighting}`);
                 if (data.cine_visual_style) promptParts.push(`- Gaya Visual Keseluruhan: ${data.cine_visual_style}`);
+                promptParts.push("");
+
+                if (data.visual_suggestions) {
+                    promptParts.push("Saran Elemen Visual:");
+                    promptParts.push(`${data.visual_suggestions}`);
+                    promptParts.push("");
+                }
                 
-                // Filter out empty lines for a cleaner output
                 const filteredPromptParts = promptParts.filter(part => part !== '');
 
-                if (filteredPromptParts.length <= 1) { // Only "Prompt Veo 3:" and possibly an empty line
-                    outputElement.textContent = 'Isi form di sebelah kiri untuk melihat prompt Anda di sini...';
+                if (filteredPromptParts.length <= 1) { 
+                    outputElement.textContent = 'Isi form di sebelah kiri untuk melihat rangkuman prompt Anda di sini...';
+                    generateVeo3Button.disabled = true;
                 } else {
                     outputElement.textContent = filteredPromptParts.join('\n');
+                    generateVeo3Button.disabled = false;
                 }
             };
 
-            inputs.forEach(input => {
-                input.addEventListener('input', generatePrompt);
+            const addAdditionalCharacterBlock = () => {
+                additionalCharacterCount++;
+                const newBlock = additionalCharacterTemplate.cloneNode(true);
+                newBlock.classList.remove('hidden', 'additional-character-template');
+                newBlock.classList.add('additional-character-block'); 
+
+                const legendTitleSpan = newBlock.querySelector('.character-legend-title');
+                legendTitleSpan.textContent = `Karakter Tambahan ${additionalCharacterCount + 2}`; 
+
+                newBlock.querySelectorAll('input, textarea').forEach(input => {
+                    input.addEventListener('input', generatePrompt);
+                });
+
+                const removeButton = newBlock.querySelector('.remove-character-button');
+                removeButton.addEventListener('click', () => {
+                    newBlock.remove();
+                    additionalCharacterCount--;
+                    updateAdditionalCharacterNumbers(); 
+                    generatePrompt(); 
+                });
+
+                additionalCharactersContainer.appendChild(newBlock);
+                generatePrompt(); 
+            };
+
+            const updateAdditionalCharacterNumbers = () => {
+                const dynamicCharacterBlocks = additionalCharactersContainer.querySelectorAll('.additional-character-block');
+                dynamicCharacterBlocks.forEach((block, index) => {
+                    const legendTitleSpan = block.querySelector('.character-legend-title');
+                    legendTitleSpan.textContent = `Karakter Tambahan ${index + 3}`;
+                });
+            };
+
+
+            const callGeminiApi = async (promptText, instruction, responseSchema = null) => {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: `${instruction}\n\n${promptText}` }] });
+                const payload = { contents: chatHistory };
+
+                if (responseSchema) {
+                    payload.generationConfig = {
+                        responseMimeType: "application/json",
+                        responseSchema: responseSchema
+                    };
+                }
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const textResult = result.candidates[0].content.parts[0].text;
+                    if (responseSchema) {
+                        return JSON.parse(textResult);
+                    }
+                    return textResult;
+                } else {
+                    throw new Error('No content in API response');
+                }
+            };
+
+            const processPromptForVeo3 = async () => {
+                const currentPrompt = outputElement.textContent; 
+                if (!currentPrompt || currentPrompt === 'Isi form di sebelah kiri untuk melihat rangkuman prompt Anda di sini...') {
+                    return;
+                }
+
+                generateVeo3Button.disabled = true;
+                veo3ButtonText.textContent = 'Memproses...';
+                veo3LoadingSpinner.classList.remove('hidden');
+
+                try {
+                    const instruction = `Ubah prompt berikut agar mudah dimengerti dan dioptimalkan untuk model generasi video AI bernama 'Veo 3'. Fokus pada kejelasan, keringkasan, dan instruksi langsung untuk menghasilkan konten video berdasarkan deskripsi karakter, detail adegan, dan sinematografi. Identifikasi bagian 'Cuplikan Dialog (DIALOG ASLI TIDAK DITERJEMAHKAN):' dan JANGAN menerjemahkannya; pastikan dialog tetap dalam bahasa aslinya. Hapus penanda '(DIALOG ASLI TIDAK DITERJEMAHKAN)' dari output final. Hapus semua karakter '*' atau format markdown lainnya dari output final. Berikan hanya prompt itu sendiri, tanpa awalan atau kalimat penutup.`;
+                    const optimizedPrompt = await callGeminiApi(currentPrompt, instruction);
+                    
+                    veo3ModalPromptText.textContent = optimizedPrompt; 
+                    veo3PromptModal.classList.add('show');
+                    currentModalPromptLanguage = 'id'; 
+                    promptLanguageIndicator.textContent = 'Bahasa: Indonesia';
+                    translateToEnglishButton.disabled = false; 
+                } catch (error) {
+                    console.error('Error calling Gemini API for Veo 3 prompt:', error);
+                    outputElement.textContent = 'Error: Gagal menghasilkan prompt Veo 3. Periksa koneksi atau coba lagi nanti.';
+                } finally {
+                    generateVeo3Button.disabled = false;
+                    veo3ButtonText.innerHTML = 'Generate Prompt<br>for VEO 3'; // Reset button text with line break
+                    veo3LoadingSpinner.classList.add('hidden');
+                }
+            };
+
+            const translatePromptToEnglish = async () => {
+                const currentPromptInModal = veo3ModalPromptText.textContent;
+                if (!currentPromptInModal || currentModalPromptLanguage === 'en') {
+                    return; 
+                }
+
+                translateToEnglishButton.disabled = true;
+                translateButtonText.textContent = 'Menerjemahkan...';
+                translateLoadingSpinner.classList.remove('hidden');
+
+                try {
+                    const instruction = `Terjemahkan prompt Veo 3 berikut ke dalam Bahasa Inggris. Pastikan terjemahan akurat dan mempertahankan nuansa serta struktur prompt asli untuk Veo 3. Identifikasi bagian 'Cuplikan Dialog (DIALOG ASLI TIDAK DITERJEMAHKAN):' dan JANGAN menerjemahkannya; pastikan dialog tetap dalam bahasa aslinya. Hapus penanda '(DIALOG ASLI TIDAK DITERJEMAHKAN)' dari output final. Hapus semua karakter '*' atau format markdown lainnya dari output final. Berikan hanya prompt itu sendiri, tanpa awalan atau kalimat penutup.`;
+                    const translatedPrompt = await callGeminiApi(currentPromptInModal, instruction);
+
+                    veo3ModalPromptText.textContent = translatedPrompt;
+                    currentModalPromptLanguage = 'en';
+                    promptLanguageIndicator.textContent = 'Bahasa: English';
+                } catch (error) {
+                    console.error('Error calling Gemini API for translation:', error);
+                    veo3ModalPromptText.textContent = 'Error: Gagal menerjemahkan prompt. Coba lagi.';
+                    promptLanguageIndicator.textContent = 'Bahasa: Error';
+                } finally {
+                    translateToEnglishButton.disabled = false;
+                    translateButtonText.textContent = 'Translate to English';
+                    translateLoadingSpinner.classList.add('hidden');
+                }
+            };
+
+            const suggestVisualElements = async () => {
+                suggestVisualsButton.disabled = true;
+                suggestVisualsButtonText.textContent = 'Mendapatkan Saran...';
+                suggestVisualsSpinner.classList.remove('hidden');
+
+                try {
+                    const currentPromptSummary = outputElement.textContent; 
+                    const instruction = `Berdasarkan rangkuman prompt adegan video berikut, berikan daftar beberapa elemen visual, properti, atau detail latar belakang spesifik yang akan meningkatkan adegan tersebut. Fokus pada objek atau detail yang bisa ditambahkan ke visual. Pisahkan setiap saran dengan koma. Abaikan dan JANGAN terjemahkan atau ubah bagian 'Cuplikan Dialog (DIALOG ASLI TIDAK DITERJEMAHKAN):'. Hapus semua karakter '*' atau format markdown lainnya dari output final. Berikan hanya daftar saran itu sendiri, tanpa awalan atau kalimat penutup. Rangkuman Prompt:\n\n${currentPromptSummary}`;
+                    const suggestions = await callGeminiApi(currentPromptSummary, instruction);
+                    visualSuggestionsInput.value = suggestions;
+                    generatePrompt(); 
+                } catch (error) {
+                    console.error('Error suggesting visual elements:', error);
+                    visualSuggestionsInput.value = 'Error: Gagal mendapatkan saran visual. Coba lagi.';
+                } finally {
+                    suggestVisualsButton.disabled = false;
+                    suggestVisualsButtonText.textContent = '✨ Dapatkan Saran Visual ✨';
+                    suggestVisualsSpinner.classList.add('hidden');
+                }
+            };
+
+            const generateContentIdeas = async () => {
+                const contentPlan = contentPlanInput.value.trim();
+                if (!contentPlan) {
+                    contentPlanErrorNotification.classList.remove('opacity-0');
+                    setTimeout(() => {
+                        contentPlanErrorNotification.classList.add('opacity-0');
+                    }, 3000);
+                    return;
+                }
+
+                generateContentIdeasButton.disabled = true;
+                generateContentIdeasButtonText.textContent = 'Menghasilkan...';
+                generateContentIdeasSpinner.classList.remove('hidden');
+                contentPlanErrorNotification.classList.add('opacity-0');
+
+                try {
+                    const instruction = `Berdasarkan rencana konten berikut, berikan ide untuk mengisi bidang-bidang berikut dalam Bahasa Indonesia. Pastikan tidak ada karakter '*' atau format markdown lainnya dalam nilai string. Jangan sertakan awalan atau kalimat penutup pada hasil JSON. Jika suatu bidang tidak relevan atau tidak bisa diisi, biarkan nilai string-nya kosong ("").
+                    1.  Nama Karakter 1 (contoh: "Kiana")
+                    2.  Deskripsi Fisik Karakter 1 (contoh: "Tinggi semampai, rambut perak")
+                    3.  Pakaian Karakter 1 (contoh: "Jubah lusuh berwarna gelap")
+                    4.  Karakter / Ekspresi Karakter 1 (contoh: "Tegas namun melankolis")
+                    5.  Nama Karakter 2 (contoh: "Orion")
+                    6.  Deskripsi Fisik Karakter 2 (contoh: "Bertubuh kekar, mata menyala merah")
+                    7.  Pakaian Karakter 2 (contoh: "Seragam militer bersih")
+                    8.  Karakter / Ekspresi Karakter 2 (contoh: "Dingin dan analitis")
+                    9.  Deskripsi Setting / Lokasi (maksimal 2 kalimat)
+                    10. Cuplikan Dialog (2-3 baris, fokus pada inti konflik, tetap dalam Bahasa Indonesia)
+                    11. Sudut Kamera & Gerakan (contoh: "Close up pada ekspresi wajah, panning")
+                    12. Pencahayaan & Suasana (contoh: "Cahaya lembut dari lentera, bayangan tajam")
+                    13. Gaya Visual Keseluruhan (contoh: "Sinematik, realistis")
+                    14. Saran Elemen Visual (3-5 poin, pisahkan dengan koma)
+
+                    Berikan jawaban dalam format JSON seperti ini:
+                    {
+                        "char1_name": "",
+                        "char1_description": "",
+                        "char1_outfit": "",
+                        "char1_character": "",
+                        "char2_name": "",
+                        "char2_description": "",
+                        "char2_outfit": "",
+                        "char2_character": "",
+                        "scene_setting": "",
+                        "scene_dialogue": "",
+                        "cine_camera": "",
+                        "cine_lighting": "",
+                        "cine_visual_style": "",
+                        "visual_suggestions": ""
+                    }
+                    Rencana Konten:`;
+                    
+                    const responseSchema = {
+                        type: "OBJECT",
+                        properties: {
+                            "char1_name": { "type": "STRING" },
+                            "char1_description": { "type": "STRING" },
+                            "char1_outfit": { "type": "STRING" },
+                            "char1_character": { "type": "STRING" },
+                            "char2_name": { "type": "STRING" },
+                            "char2_description": { "type": "STRING" },
+                            "char2_outfit": { "type": "STRING" },
+                            "char2_character": { "type": "STRING" },
+                            "scene_setting": { "type": "STRING" },
+                            "scene_dialogue": { "type": "STRING" },
+                            "cine_camera": { "type": "STRING" },
+                            "cine_lighting": { "type": "STRING" },
+                            "cine_visual_style": { "type": "STRING" },
+                            "visual_suggestions": { "type": "STRING" }
+                        },
+                        required: ["scene_setting", "scene_dialogue", "visual_suggestions"] // Keep required for core fields
+                    };
+
+                    const ideas = await callGeminiApi(contentPlan, instruction, responseSchema);
+                    
+                    // Populate the main form fields
+                    char1NameInput.value = ideas.char1_name || '';
+                    char1DescriptionInput.value = ideas.char1_description || '';
+                    char1OutfitInput.value = ideas.char1_outfit || '';
+                    char1CharacterInput.value = ideas.char1_character || '';
+
+                    char2NameInput.value = ideas.char2_name || '';
+                    char2DescriptionInput.value = ideas.char2_description || '';
+                    char2OutfitInput.value = ideas.char2_outfit || '';
+                    char2CharacterInput.value = ideas.char2_character || '';
+
+                    sceneSettingInput.value = ideas.scene_setting || '';
+                    sceneDialogueInput.value = ideas.dialogue || ''; // Preserve original dialogue
+                    visualSuggestionsInput.value = ideas.visual_suggestions || '';
+
+                    cineCameraInput.value = ideas.cine_camera || '';
+                    cineLightingInput.value = ideas.cine_lighting || '';
+                    cineVisualStyleInput.value = ideas.cine_visual_style || '';
+
+
+                    contentPlanModal.classList.remove('show');
+                    generatePrompt(); // Update the main summary after filling fields
+
+                } catch (error) {
+                    console.error('Error generating content ideas:', error);
+                    contentPlanErrorNotification.textContent = 'Error: Gagal mendapatkan ide konten. Coba lagi.';
+                    contentPlanErrorNotification.classList.remove('opacity-0');
+                } finally {
+                    generateContentIdeasButton.disabled = false;
+                    generateContentIdeasButtonText.textContent = 'Berikan Ide Konten';
+                    generateContentIdeasSpinner.classList.add('hidden');
+                }
+            };
+
+
+            const copyTextToClipboard = (textToCopy, notificationElement) => {
+                if (!textToCopy) {
+                    return;
+                }
+
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                textarea.style.position = 'absolute';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        notificationElement.classList.remove('opacity-0');
+                        setTimeout(() => {
+                            notificationElement.classList.add('opacity-0');
+                        }, 2000);
+                    } else {
+                        console.error('Failed to copy text using execCommand');
+                    }
+                } catch (err) {
+                    console.error('Error copying text:', err);
+                } finally {
+                    document.body.removeChild(textarea);
+                }
+            };
+
+            // Event Listeners
+            copyVeo3PromptButton.addEventListener('click', () => {
+                copyTextToClipboard(veo3ModalPromptText.textContent, modalCopyNotification);
             });
 
-            copyButton.addEventListener('click', () => {
-                if (navigator.clipboard && outputElement.textContent && outputElement.textContent !== 'Isi form di sebelah kiri untuk melihat prompt Anda di sini...') {
-                    navigator.clipboard.writeText(outputElement.textContent)
-                        .then(() => {
-                            copyNotification.classList.remove('opacity-0');
-                            setTimeout(() => {
-                                copyNotification.classList.add('opacity-0');
-                            }, 2000);
-                        })
-                        .catch(err => {
-                            console.error('Failed to copy text: ', err);
-                        });
-                }
+            translateToEnglishButton.addEventListener('click', translatePromptToEnglish);
+
+            closeVeo3ModalButton.addEventListener('click', () => {
+                veo3PromptModal.classList.remove('show');
             });
+
+            addAdditionalCharacterButton.addEventListener('click', addAdditionalCharacterBlock);
+            suggestVisualsButton.addEventListener('click', suggestVisualElements);
+            form.addEventListener('input', generatePrompt);
+            generateVeo3Button.addEventListener('click', processPromptForVeo3);
+
+            // FAB related listeners
+            fabButton.addEventListener('click', () => {
+                contentPlanModal.classList.add('show');
+            });
+
+            closeContentPlanModalButton.addEventListener('click', () => {
+                contentPlanModal.classList.remove('show');
+            });
+
+            generateContentIdeasButton.addEventListener('click', generateContentIdeas);
+
 
             resetButton.addEventListener('click', () => {
                 form.reset();
-                document.getElementById('char1_name').value = 'jono'; // Keep this value as per request
+                additionalCharactersContainer.querySelectorAll('.additional-character-block').forEach(block => block.remove()); 
+                additionalCharacterCount = 0; 
                 generatePrompt();
+                veo3PromptModal.classList.remove('show'); 
+                contentPlanModal.classList.remove('show'); // Close content plan modal on reset
+                currentModalPromptLanguage = 'id'; 
+                promptLanguageIndicator.textContent = 'Bahasa: Indonesia'; 
+                visualSuggestionsInput.value = ''; 
+                contentPlanInput.value = ''; // Clear content plan input
             });
 
-            // Initial prompt generation on load
             generatePrompt();
         });
     </script>
