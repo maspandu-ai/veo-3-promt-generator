@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Veo 3 Prompt Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: SPA ini dirancang dengan tata letak dua kolom (form di kiri, output di kanan) pada layar lebar, yang berubah menjadi satu kolom di perangkat seluler. Struktur ini dipilih untuk memberikan pengalaman pengguna yang intuitif, di mana pengguna dapat mengisi form dan melihat hasilnya secara real-time di sampingnya. Alur pengguna sederhana: isi, lihat, salin. Pendekatan ini mengubah dokumen statis menjadi alat yang dinamis dan fungsional, meningkatkan kegunaan dengan mengotomatiskan pembuatan prompt. -->
+    <!-- Visualization & Content Choices: Karena "laporan sumber" adalah sebuah template form, metode presentasi yang paling efektif adalah form HTML interaktif, bukan visualisasi data seperti grafik. Setiap field dalam laporan diubah menjadi input teks atau textarea. "Visualisasi" utamanya adalah blok teks output yang diperbarui secara dinamis, yang secara langsung melayani tujuan pengguna untuk membuat prompt. Interaksi utama adalah mengetik di form dan menyalin hasilnya. Metode: HTML, Tailwind CSS, Vanilla JS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .form-input {
+            width: 100%;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            padding: 0.5rem 0.75rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-color: #f9fafb;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #fbbf24;
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.5);
+        }
+        .form-textarea {
+            min-height: 80px;
+        }
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.2s, transform 0.1s;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: #ca8a04;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #a16207;
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .prompt-output {
+            background-color: #1f2937;
+            color: #d1d5db;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            line-height: 1.6;
+            min-height: 200px;
+        }
+        .legend-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #78350f;
+            padding: 0 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800">
+
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-stone-900">Veo 3 Prompt Generator by @maspandu.ai</h1>
+            <p class="mt-2 text-lg text-stone-600">Isi form di bawah untuk membuat prompt dialog yang detail dan terstruktur secara otomatis.</br>Jangan lupa follow @maspandu.ai & komen jika ada masukan ya!</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-2 lg:gap-12">
+            
+            <!-- Form Section -->
+            <form id="promptForm" class="space-y-8">
+                <!-- Karakter 1 -->
+                <fieldset class="border border-stone-300 rounded-lg p-6">
+                    <legend class="legend-title">Karakter 1</legend>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="char1_name" class="block text-sm font-medium text-stone-700 mb-1">Nama Karakter</label>
+                            <input type="text" id="char1_name" class="form-input" placeholder="Contoh: Kiana, Jendral Zero">
+                        </div>
+                        <div>
+                            <label for="char1_description" class="block text-sm font-medium text-stone-700 mb-1">Deskripsi Fisik</label>
+                            <textarea id="char1_description" class="form-input form-textarea" placeholder="Contoh: Tinggi semampai dengan rambut perak, bekas luka di pipi kiri"></textarea>
+                        </div>
+                        <div>
+                            <label for="char1_outfit" class="block text-sm font-medium text-stone-700 mb-1">Pakaian</label>
+                            <textarea id="char1_outfit" class="form-input form-textarea" placeholder="Contoh: Jubah lusuh berwarna gelap, baju zirah futuristik"></textarea>
+                        </div>
+                        <div>
+                            <label for="char1_character" class="block text-sm font-medium text-stone-700 mb-1">Karakter / Ekspresi</label>
+                            <textarea id="char1_character" class="form-input form-textarea" placeholder="Contoh: Tegas namun melankolis, sering tersenyum sinis"></textarea>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Karakter 2 -->
+                <fieldset class="border border-stone-300 rounded-lg p-6">
+                    <legend class="legend-title">Karakter 2</legend>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="char2_name" class="block text-sm font-medium text-stone-700 mb-1">Nama Karakter</label>
+                            <input type="text" id="char2_name" class="form-input" placeholder="Contoh: Orion, Nyx, Sang Bayangan">
+                        </div>
+                        <div>
+                            <label for="char2_description" class="block text-sm font-medium text-stone-700 mb-1">Deskripsi Fisik</label>
+                            <textarea id="char2_description" class="form-input form-textarea" placeholder="Contoh: Bertubuh kekar, mata menyala merah, robot dengan lengan multi-fungsi"></textarea>
+                        </div>
+                        <div>
+                            <label for="char2_outfit" class="block text-sm font-medium text-stone-700 mb-1">Pakaian</label>
+                            <textarea id="char2_outfit" class="form-input form-textarea" placeholder="Contoh: Seragam militer bersih, pakaian tradisional suku gunung"></textarea>
+                        </div>
+                        <div>
+                            <label for="char2_character" class="block text-sm font-medium text-stone-700 mb-1">Karakter / Ekspresi</label>
+                            <textarea id="char2_character" class="form-input form-textarea" placeholder="Contoh: Dingin dan analitis, selalu menunjukkan sedikit rasa ingin tahu"></textarea>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Karakter Tambahan (Opsional) -->
+                <fieldset class="border border-stone-300 rounded-lg p-6">
+                    <legend class="legend-title">Karakter Tambahan (Opsional)</legend>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="char3_name" class="block text-sm font-medium text-stone-700 mb-1">Nama Karakter</label>
+                            <input type="text" id="char3_name" class="form-input" placeholder="Contoh: Makhluk hutan, penjaga gerbang">
+                        </div>
+                        <div>
+                            <label for="char3_description" class="block text-sm font-medium text-stone-700 mb-1">Deskripsi Fisik</label>
+                            <textarea id="char3_description" class="form-input form-textarea" placeholder="Contoh: Bertubuh kecil, kulit bersisik, mata besar bercahaya"></textarea>
+                        </div>
+                        <div>
+                            <label for="char3_outfit" class="block text-sm font-medium text-stone-700 mb-1">Pakaian</label>
+                            <textarea id="char3_outfit" class="form-input form-textarea" placeholder="Contoh: Tidak memakai pakaian, jubah dari daun"></textarea>
+                        </div>
+                        <div>
+                            <label for="char3_character" class="block text-sm font-medium text-stone-700 mb-1">Karakter / Ekspresi</label>
+                            <textarea id="char3_character" class="form-input form-textarea" placeholder="Contoh: Penakut, suka menyelinap, pandangan mata tajam"></textarea>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Detail Adegan -->
+                <fieldset class="border border-stone-300 rounded-lg p-6">
+                    <legend class="legend-title">Detail Adegan</legend>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="scene_setting" class="block text-sm font-medium text-stone-700 mb-1">Deskripsi Setting / Lokasi</label>
+                            <textarea id="scene_setting" class="form-input form-textarea" placeholder="Contoh: Reruntuhan kuil kuno yang diselimuti kabut, di dalam pesawat ruang angkasa yang rusak"></textarea>
+                        </div>
+                        <div>
+                            <label for="scene_dialogue" class="block text-sm font-medium text-stone-700 mb-1">Cuplikan Dialog</label>
+                            <textarea id="scene_dialogue" class="form-input form-textarea" placeholder="Contoh: 'Apa yang harus kita lakukan sekarang?' 'Tidak ada pilihan lain.'"></textarea>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Sinematografi -->
+                <fieldset class="border border-stone-300 rounded-lg p-6">
+                    <legend class="legend-title">Sinematografi</legend>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="cine_camera" class="block text-sm font-medium text-stone-700 mb-1">Sudut Kamera & Gerakan</label>
+                            <textarea id="cine_camera" class="form-input form-textarea" placeholder="Contoh: Close up pada ekspresi wajah, panning perlahan mengikuti gerakan"></textarea>
+                        </div>
+                        <div>
+                            <label for="cine_lighting" class="block text-sm font-medium text-stone-700 mb-1">Pencahayaan & Suasana</label>
+                            <textarea id="cine_lighting" class="form-input form-textarea" placeholder="Contoh: Cahaya lembut dari lentera, bayangan tajam dari pohon"></textarea>
+                        </div>
+                        <div>
+                            <label for="cine_visual_style" class="block text-sm font-medium text-stone-700 mb-1">Gaya Visual Keseluruhan</label>
+                            <input type="text" id="cine_visual_style" class="form-input" placeholder="Contoh: Sinematik, realistis, futuristik, klasik"></input>
+                        </div>
+                    </div>
+                </fieldset>
+            </form>
+
+            <!-- Output Section -->
+            <div class="sticky top-12 self-start">
+                <h2 class="text-2xl font-bold text-stone-900 mb-4">Generated Prompt</h2>
+                <div id="promptOutput" class="prompt-output">
+                    Isi form di sebelah kiri untuk melihat prompt Anda di sini...
+                </div>
+                <div class="mt-6 flex flex-col sm:flex-row gap-4">
+                    <button id="copyButton" class="btn btn-primary w-full">Copy to Clipboard</button>
+                    <button id="resetButton" type="button" class="btn btn-secondary w-full">Reset Form</button>
+                </div>
+                <div id="copyNotification" class="mt-4 text-center text-green-600 font-medium opacity-0 transition-opacity">
+                    Prompt disalin!
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('promptForm');
+            const outputElement = document.getElementById('promptOutput');
+            const copyButton = document.getElementById('copyButton');
+            const resetButton = document.getElementById('resetButton');
+            const copyNotification = document.getElementById('copyNotification');
+
+            const inputs = form.querySelectorAll('input, textarea');
+
+            const generatePrompt = () => {
+                const data = {};
+                inputs.forEach(input => {
+                    data[input.id] = input.value.trim();
+                });
+
+                let promptParts = [];
+
+                promptParts.push("Prompt Veo 3:");
+                promptParts.push(""); // Spacer
+
+                // Karakter 1
+                promptParts.push("**Karakter 1:**");
+                if (data.char1_name) promptParts.push(`- Nama: ${data.char1_name}`);
+                if (data.char1_description) promptParts.push(`- Deskripsi Fisik: ${data.char1_description}`);
+                if (data.char1_outfit) promptParts.push(`- Pakaian: ${data.char1_outfit}`);
+                if (data.char1_character) promptParts.push(`- Karakter / Ekspresi: ${data.char1_character}`);
+                promptParts.push(""); // Spacer
+
+                // Karakter 2
+                promptParts.push("**Karakter 2:**");
+                if (data.char2_name) promptParts.push(`- Nama: ${data.char2_name}`);
+                if (data.char2_description) promptParts.push(`- Deskripsi Fisik: ${data.char2_description}`);
+                if (data.char2_outfit) promptParts.push(`- Pakaian: ${data.char2_outfit}`);
+                if (data.char2_character) promptParts.push(`- Karakter / Ekspresi: ${data.char2_character}`);
+                promptParts.push(""); // Spacer
+
+                // Karakter Tambahan (Opsional)
+                if (data.char3_name || data.char3_description || data.char3_outfit || data.char3_character) {
+                    promptParts.push("**Karakter Tambahan (Opsional):**");
+                    if (data.char3_name) promptParts.push(`- Nama: ${data.char3_name}`);
+                    if (data.char3_description) promptParts.push(`- Deskripsi Fisik: ${data.char3_description}`);
+                    if (data.char3_outfit) promptParts.push(`- Pakaian: ${data.char3_outfit}`);
+                    if (data.char3_character) promptParts.push(`- Karakter / Ekspresi: ${data.char3_character}`);
+                    promptParts.push(""); // Spacer
+                }
+
+                // Detail Adegan
+                promptParts.push("**Detail Adegan:**");
+                if (data.scene_setting) promptParts.push(`- Deskripsi Setting / Lokasi: ${data.scene_setting}`);
+                if (data.scene_dialogue) promptParts.push(`- Cuplikan Dialog: ${data.scene_dialogue}`);
+                promptParts.push(""); // Spacer
+
+                // Sinematografi
+                promptParts.push("**Sinematografi:**");
+                if (data.cine_camera) promptParts.push(`- Sudut Kamera & Gerakan: ${data.cine_camera}`);
+                if (data.cine_lighting) promptParts.push(`- Pencahayaan & Suasana: ${data.cine_lighting}`);
+                if (data.cine_visual_style) promptParts.push(`- Gaya Visual Keseluruhan: ${data.cine_visual_style}`);
+                
+                // Filter out empty lines for a cleaner output
+                const filteredPromptParts = promptParts.filter(part => part !== '');
+
+                if (filteredPromptParts.length <= 1) { // Only "Prompt Veo 3:" and possibly an empty line
+                    outputElement.textContent = 'Isi form di sebelah kiri untuk melihat prompt Anda di sini...';
+                } else {
+                    outputElement.textContent = filteredPromptParts.join('\n');
+                }
+            };
+
+            inputs.forEach(input => {
+                input.addEventListener('input', generatePrompt);
+            });
+
+            copyButton.addEventListener('click', () => {
+                if (navigator.clipboard && outputElement.textContent && outputElement.textContent !== 'Isi form di sebelah kiri untuk melihat prompt Anda di sini...') {
+                    navigator.clipboard.writeText(outputElement.textContent)
+                        .then(() => {
+                            copyNotification.classList.remove('opacity-0');
+                            setTimeout(() => {
+                                copyNotification.classList.add('opacity-0');
+                            }, 2000);
+                        })
+                        .catch(err => {
+                            console.error('Failed to copy text: ', err);
+                        });
+                }
+            });
+
+            resetButton.addEventListener('click', () => {
+                form.reset();
+                document.getElementById('char1_name').value = 'jono'; // Keep this value as per request
+                generatePrompt();
+            });
+
+            // Initial prompt generation on load
+            generatePrompt();
+        });
+    </script>
+</body>
+</html>
