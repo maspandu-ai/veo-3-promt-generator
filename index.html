@@ -617,9 +617,8 @@
                 };
 
                 // Point to your serverless function endpoint
-                // For Netlify Functions, it's typically /.netlify/functions/<function-name>
-                // For Vercel Edge Functions, it's typically /api/<function-name>
-                const SERVERLESS_ENDPOINT = '/.netlify/functions/gemini-proxy'; 
+                // Menggunakan URL absolut untuk fungsi Netlify Anda
+                const SERVERLESS_ENDPOINT = 'https://veo-3-promt-generator.netlify.app/.netlify/functions/gemini-proxy'; 
                 
                 const response = await fetch(SERVERLESS_ENDPOINT, {
                     method: 'POST',
@@ -628,8 +627,9 @@
                 });
 
                 if (!response.ok) {
-                    const errorBody = await response.json();
-                    throw new Error(`Serverless function error: ${response.statusText} - ${errorBody.error || JSON.stringify(errorBody)}`);
+                    // Coba baca body error dari response untuk detail lebih lanjut
+                    const errorBody = await response.json().catch(() => ({})); // Tangani jika body bukan JSON
+                    throw new Error(`Serverless function error: ${response.status} ${response.statusText} - ${errorBody.error || errorBody.message || JSON.stringify(errorBody) || 'Unknown error'}`);
                 }
 
                 const result = await response.json();
@@ -642,7 +642,7 @@
                     // Otherwise, it will return plain text
                     return responseSchema ? JSON.parse(textResult) : textResult; 
                 } else {
-                    throw new Error('Tidak ada konten yang diterima dari API.');
+                    throw new Error('Tidak ada konten yang diterima dari API (respons API kosong atau format tidak sesuai).'); 
                 }
             };
 
@@ -668,7 +668,7 @@
                 } catch (error) {
                     console.error('Error calling Gemini API for Veo 3 prompt:', error);
                     // Menampilkan error di rangkuman jika panggilan API gagal
-                    outputElement.textContent = `Error: Gagal menghasilkan prompt Veo 3. ${error.message}. Periksa koneksi internet atau kunci API di serverless function.`;
+                    outputElement.textContent = `Error: Gagal menghasilkan prompt Veo 3. ${error.message}. Periksa koneksi internet atau konfigurasi serverless function di Netlify Anda.`;
                 } finally {
                     generateVeo3Button.disabled = false;
                     veo3ButtonText.innerHTML = 'Generate Prompt<br>for VEO 3'; // Reset button text with line break
