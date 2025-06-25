@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals -->
-    <!-- Application Structure Plan: SPA ini dirancang dengan tata letak dua kolom (form di kiri, output rangkuman di kanan) pada layar lebar, yang berubah menjadi satu kolom di perangkat seluler. Struktur ini dipilih untuk memberikan pengalaman pengguna yang intuitif, di mana pengguna dapat mengisi form dan melihat rangkuman secara real-time. Alur pengguna: isi form, lihat rangkuman, proses dengan LLM melalui tombol khusus yang akan menampilkan prompt final di pop-up. Fitur tambahan karakter dinamis memungkinkan pengguna untuk menambahkan karakter tambahan sesuka hati, membuat form lebih ringkas secara default. Penambahan field aksen bahasa, penghapusan ekspansi dialog, dan integrasi fitur AI baru untuk saran konten meningkatkan fungsionalitas aplikasi. Footer minimalis dengan ikon emoji Unicode juga ditambahkan. -->
-    <!-- Visualization & Content Choices: Karena "laporan sumber" adalah template form, metode presentasi paling efektif adalah form HTML interaktif. Setiap field diubah menjadi input teks atau textarea. "Rangkuman" awal adalah blok teks yang diperbarui dinamis. Prompt Veo 3 yang dioptimalkan dari LLM ditampilkan dalam pop-up terpisah. Interaksi utama adalah mengisi form, melihat rangkuman, mengklik tombol untuk memicu optimasi AI dan menampilkan pop-up, menambahkan/menghapus blok karakter tambahan secara dinamis, serta menggunakan FAB untuk mendapatkan saran konten AI baru yang mengisi form secara otomatis. Metode: HTML, Tailwind CSS, Vanilla JS, Gemini API. -->
+    <!-- Application Structure Plan: SPA ini dirancang dengan tata letak dua kolom (form di kiri, output rangkuman di kanan) pada layar lebar, yang berubah menjadi satu kolom di perangkat seluler. Struktur ini dipilih untuk memberikan pengalaman pengguna yang intuitif, di mana pengguna dapat mengisi form dan melihat rangkuman secara real-time. Alur pengguna: isi form, lihat rangkasan, proses dengan LLM melalui tombol khusus yang akan menampilkan prompt final di pop-up. Fitur tambahan karakter dinamis memungkinkan pengguna untuk menambahkan karakter tambahan sesuka hati, membuat form lebih ringkas secara default. Penambahan field aksen bahasa, penghapusan ekspansi dialog, dan integrasi fitur AI baru untuk saran konten meningkatkan fungsionalitas aplikasi. Footer minimalis dengan ikon emoji Unicode juga ditambahkan. -->
+    <!-- Visualization & Content Choices: Karena "laporan sumber" adalah template form, metode presentasi paling efektif adalah form HTML interaktif. Setiap field diubah menjadi input teks atau textarea. "Rangkuman" awal adalah blok teks yang diperbarui dinamis. Prompt Veo 3 yang dioptimalkan dari LLM ditampilkan dalam pop-up terpisah. Interaksi utama adalah mengisi form, melihat rangkasan, mengklik tombol untuk memicu optimasi AI dan menampilkan pop-up, menambahkan/menghapus blok karakter tambahan secara dinamis, serta menggunakan FAB untuk mendapatkan saran konten AI baru yang mengisi form secara otomatis. Metode: HTML, Tailwind CSS, Vanilla JS, Serverless Function (Gemini API via proxy). -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -608,36 +608,41 @@
 
             const callGeminiApi = async (promptText, instruction, responseSchema = null) => {
                 let chatHistory = [];
+                // Frontend only sends the instruction and promptText, the API key is handled by the serverless function
                 chatHistory.push({ role: "user", parts: [{ text: `${instruction}\n\n${promptText}` }] });
-                const payload = { contents: chatHistory };
+                const payload = { 
+                    contents: chatHistory,
+                    // Pass responseSchema to the serverless function if structured output is needed
+                    responseSchema: responseSchema 
+                };
 
-                if (responseSchema) {
-                    payload.generationConfig = {
-                        responseMimeType: "application/json",
-                        responseSchema: responseSchema
-                    };
-                }
-
-                const apiKey = "";
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-                const response = await fetch(apiUrl, {
+                // Point to your serverless function endpoint
+                // For Netlify Functions, it's typically /.netlify/functions/<function-name>
+                // For Vercel Edge Functions, it's typically /api/<function-name>
+                const SERVERLESS_ENDPOINT = '/.netlify/functions/gemini-proxy'; 
+                
+                const response = await fetch(SERVERLESS_ENDPOINT, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`Serverless function error: ${response.statusText} - ${errorBody.error || JSON.stringify(errorBody)}`);
+                }
+
                 const result = await response.json();
+                
                 if (result.candidates && result.candidates.length > 0 &&
                     result.candidates[0].content && result.candidates[0].content.parts &&
                     result.candidates[0].content.parts.length > 0) {
                     const textResult = result.candidates[0].content.parts[0].text;
-                    if (responseSchema) {
-                        return JSON.parse(textResult);
-                    }
-                    return textResult;
+                    // If responseSchema was used, the serverless function will return parsed JSON
+                    // Otherwise, it will return plain text
+                    return responseSchema ? JSON.parse(textResult) : textResult; 
                 } else {
-                    throw new Error('No content in API response');
+                    throw new Error('Tidak ada konten yang diterima dari API.');
                 }
             };
 
@@ -662,7 +667,8 @@
                     translateToEnglishButton.disabled = false; 
                 } catch (error) {
                     console.error('Error calling Gemini API for Veo 3 prompt:', error);
-                    outputElement.textContent = 'Error: Gagal menghasilkan prompt Veo 3. Periksa koneksi atau coba lagi nanti.';
+                    // Menampilkan error di rangkuman jika panggilan API gagal
+                    outputElement.textContent = `Error: Gagal menghasilkan prompt Veo 3. ${error.message}. Periksa koneksi internet atau kunci API di serverless function.`;
                 } finally {
                     generateVeo3Button.disabled = false;
                     veo3ButtonText.innerHTML = 'Generate Prompt<br>for VEO 3'; // Reset button text with line break
@@ -689,7 +695,7 @@
                     promptLanguageIndicator.textContent = 'Bahasa: English';
                 } catch (error) {
                     console.error('Error calling Gemini API for translation:', error);
-                    veo3ModalPromptText.textContent = 'Error: Gagal menerjemahkan prompt. Coba lagi.';
+                    veo3ModalPromptText.textContent = `Error: Gagal menerjemahkan prompt. ${error.message}.`;
                     promptLanguageIndicator.textContent = 'Bahasa: Error';
                 } finally {
                     translateToEnglishButton.disabled = false;
@@ -711,7 +717,7 @@
                     generatePrompt(); 
                 } catch (error) {
                     console.error('Error suggesting visual elements:', error);
-                    visualSuggestionsInput.value = 'Error: Gagal mendapatkan saran visual. Coba lagi.';
+                    visualSuggestionsInput.value = `Error: Gagal mendapatkan saran visual. ${error.message}.`;
                 } finally {
                     suggestVisualsButton.disabled = false;
                     suggestVisualsButtonText.textContent = '✨ Dapatkan Saran Visual ✨';
@@ -818,7 +824,7 @@
 
                 } catch (error) {
                     console.error('Error generating content ideas:', error);
-                    contentPlanErrorNotification.textContent = 'Error: Gagal mendapatkan ide konten. Coba lagi.';
+                    contentPlanErrorNotification.textContent = `Error: Gagal mendapatkan ide konten. ${error.message}.`;
                     contentPlanErrorNotification.classList.remove('opacity-0');
                 } finally {
                     generateContentIdeasButton.disabled = false;
@@ -903,3 +909,52 @@
     </script>
 </body>
 </html>
+```
+
+**Langkah-langkah untuk *Deploy* Aplikasi Anda di GitHub Pages (Langkah Paling Aman dan Lancar):**
+
+1.  **Dapatkan Kunci API Gemini Anda:**
+    * Kunjungi [Google AI Studio](https://aistudio.google.com/app/apikey).
+    * Buat atau salin kunci API Gemini Anda. Ini adalah kunci rahasia yang tidak boleh dibagikan secara publik.
+
+2.  **Buat Repositori GitHub Baru (Jika Belum Ada):**
+    * Masuk ke akun GitHub Anda.
+    * Buat repositori baru (misal: `veo3-prompt-generator`). Pastikan repositori ini **publik**.
+
+3.  **Siapkan Struktur Folder di Repositori Anda:**
+    * Di repositori GitHub Anda (baik melalui *web interface* atau *git clone* lokal), buat struktur folder berikut:
+        ```
+        veo3-prompt-generator/
+        ├── index.html
+        └── netlify/
+            └── functions/
+                └── gemini-proxy.js
+        ```
+    * **Penting:** File `gemini-proxy.js` harus berada di dalam `netlify/functions/` (untuk Netlify Functions) atau `api/` (untuk Vercel Edge Functions).
+
+4.  **Unggah File `index.html` dan `gemini-proxy.js`:**
+    * Unggah kode HTML yang baru saya berikan ke `index.html` di akar repositori Anda.
+    * Unggah kode JavaScript untuk fungsi *serverless* (yang saya berikan di respons sebelumnya) ke `netlify/functions/gemini-proxy.js`.
+
+5.  **Konfigurasi Netlify (Direkomendasikan untuk Kemudahan Serverless):**
+    * Daftar atau masuk ke [Netlify](https://www.netlify.com/).
+    * Klik "Add new site" -> "Import an existing project".
+    * Pilih "Deploy with GitHub" dan sambungkan ke repositori `veo3-prompt-generator` Anda.
+    * **Konfigurasi Build Settings:**
+        * **Base directory:** Biarkan kosong (`/`).
+        * **Build command:** Biarkan kosong (Netlify akan mengenali fungsi *serverless* di folder `netlify/functions` secara otomatis).
+        * **Publish directory:** Biarkan kosong (`/`) atau sesuaikan jika Anda memiliki folder *build* spesifik (contoh: `dist`).
+    * **Konfigurasi Environment Variable (Sangat Penting!):**
+        * Sebelum *deploy*, atau setelah *deploy* pertama kali, pergi ke **Site settings** situs Anda di Netlify.
+        * Pilih **Build & deploy** -> **Environment**.
+        * Klik "Add a variable".
+        * **Key:** `GEMINI_API_KEY`
+        * **Value:** `PASTE_KUNCI_API_GEMINI_ANDA_DI_SINI` (Ini adalah kunci API rahasia yang Anda dapatkan dari Google AI Studio).
+        * Klik "Save".
+    * Klik **"Deploy site"**.
+
+6.  **Akses Aplikasi Anda:**
+    * Setelah *deployment* selesai (biasanya beberapa menit), Netlify akan memberikan URL unik untuk aplikasi Anda (misal: `https://nama-unik-anda.netlify.app`). Anda dapat mengaksesnya di sana.
+    * Kunci API Gemini Anda akan aman dan tidak terlihat di *frontend*. Semua panggilan ke Gemini API akan di-*proxy* melalui fungsi *serverless* Anda.
+
+Dengan mengikuti langkah-langkah ini, Anda akan memiliki aplikasi yang berjalan dengan lancar dan aman di *hosting* gratis. Semoga berhas
